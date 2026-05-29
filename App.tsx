@@ -9,9 +9,9 @@ import { globalStyles } from './src/styles/global';
 import AboutScreen from './src/components/AboutScreen';
 import LoginScreen from './src/components/LoginScreen';
 import SignupScreen from './src/components/SignupScreen';
-import { useAuthStore } from './src/store/useAuthStore';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 
-export default function App() {
+function AppContent() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [text, setText] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
@@ -27,8 +27,7 @@ export default function App() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [priority, setPriority] = useState<'Baixa' | 'Média' | 'Alta'>('Baixa');
 
-  const token = useAuthStore((state) => state.token);
-  const logout = useAuthStore((state) => state.logout);
+  const { session: token, signOut: logout, loading: authLoading } = useAuth();
   const [screen, setScreen] = useState<'login' | 'signup'>('login');
 
   useEffect(() => {
@@ -37,8 +36,8 @@ export default function App() {
     }
   }, [token]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setTasks([]);
   };
 
@@ -74,6 +73,14 @@ export default function App() {
     setShowDatePicker(false);
     if (selectedDate) setDueDate(selectedDate);
   };
+
+  if (authLoading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#000000" />
+      </SafeAreaView>
+    );
+  }
 
   if (!token) {
     if (screen === 'login') {
@@ -281,6 +288,14 @@ export default function App() {
 
       <StatusBar style="auto" />
     </SafeAreaView>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

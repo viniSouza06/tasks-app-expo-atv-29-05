@@ -1,42 +1,41 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, SafeAreaView } from 'react-native';
-import axios from 'axios';
-import { useAuthStore } from '../store/useAuthStore';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, SafeAreaView } from 'react-native';
+import { login } from '../utils/auth-api';
+import { useAuth } from '../context/AuthContext';
 
 interface LoginScreenProps {
   onNavigateToSignup: () => void;
 }
 
-const baseURL = process.env.EXPO_PUBLIC_API_URL;
-
 const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToSignup }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const setAuth = useAuthStore((state) => state.setAuth);
+  const [error, setError] = useState('');
+  const { signIn } = useAuth();
 
   const handleLogin = async () => {
+    setError('');
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      setError('Por favor, preencha todos os campos.');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await axios.post(`${baseURL}/api/auth/login`, {
+      const data = await login({
         email: email.trim().toLowerCase(),
         password,
       });
 
-      const { token, user } = response.data;
-      setAuth(token, {
-        id: String(user.id),
-        name: user.email.split('@')[0],
-        email: user.email,
+      await signIn(data.token, {
+        id: String(data.user.id),
+        name: data.user.email.split('@')[0],
+        email: data.user.email,
       });
     } catch (error: any) {
-      const message = error.response?.data?.error || 'Erro ao realizar login. Tente novamente.';
-      Alert.alert('Erro', message);
+      const message = error.response?.data?.error || error.message || 'Erro ao realizar login. Tente novamente.';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -48,6 +47,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToSignup }) => {
         <View style={styles.card}>
           <Text style={styles.title}>Entrar</Text>
           <Text style={styles.subtitle}>Gerencie suas tarefas de forma simples</Text>
+
+          {error !== '' && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>E-mail</Text>
@@ -177,6 +182,21 @@ const styles = StyleSheet.create({
   linkButton: {
     marginTop: 20,
     alignItems: 'center',
+  },
+  errorBox: {
+    backgroundColor: '#fff0f0',
+    borderWidth: 1,
+    borderColor: '#ff4d4d',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#cc0000',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   linkText: {
     color: '#000000',
