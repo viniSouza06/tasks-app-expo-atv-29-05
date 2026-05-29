@@ -7,11 +7,11 @@ import TaskList from './src/components/TaskList';
 import { addTask, deleteTask, getAllTasks, updateTask, TaskItem } from './src/utils/handle-api';
 import { globalStyles } from './src/styles/global';
 import AboutScreen from './src/components/AboutScreen';
-
-// TODO (Zustand): Importe o seu useTaskStore aqui
+import LoginScreen from './src/components/LoginScreen';
+import SignupScreen from './src/components/SignupScreen';
+import { useAuthStore } from './src/store/useAuthStore';
 
 export default function App() {
-  // TODO (Zustand): Remova este useState e utilize o seletor da sua store para pegar as tasks
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [text, setText] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
@@ -27,10 +27,20 @@ export default function App() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [priority, setPriority] = useState<'Baixa' | 'Média' | 'Alta'>('Baixa');
 
+  const token = useAuthStore((state) => state.token);
+  const logout = useAuthStore((state) => state.logout);
+  const [screen, setScreen] = useState<'login' | 'signup'>('login');
+
   useEffect(() => {
-    // TODO (Zustand): Atualize esta chamada para usar a action correspondente da store
-    getAllTasks(setTasks, setLoading);
-  }, []);
+    if (token) {
+      getAllTasks(setTasks, setLoading);
+    }
+  }, [token]);
+
+  const handleLogout = () => {
+    logout();
+    setTasks([]);
+  };
 
   const resetForm = () => {
     setText("");
@@ -54,10 +64,8 @@ export default function App() {
   const handleSave = () => {
     const formattedDate = dueDate ? dueDate.toISOString() : null;
     if (isUpdating) {
-      // TODO (Zustand): Substitua a chamada abaixo pela action de atualizar da sua store
       updateTask(taskId, text, completed, formattedDate, setTasks, resetForm);
     } else {
-      // TODO (Zustand): Substitua a chamada abaixo pela action de adicionar da sua store
       addTask(text, completed, formattedDate, setTasks, resetForm);
     }
   };
@@ -66,6 +74,13 @@ export default function App() {
     setShowDatePicker(false);
     if (selectedDate) setDueDate(selectedDate);
   };
+
+  if (!token) {
+    if (screen === 'login') {
+      return <LoginScreen onNavigateToSignup={() => setScreen('signup')} />;
+    }
+    return <SignupScreen onNavigateToLogin={() => setScreen('login')} />;
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -81,6 +96,9 @@ export default function App() {
             />
           )}
           {!logoError && <Text style={styles.header}>Tarefas</Text>}
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <Text style={styles.logoutBtnText}>Sair</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.counterContainer}>
@@ -126,7 +144,6 @@ export default function App() {
               styles.deleteButton,
               pressed && styles.deleteButtonPressed
             ]}
-            // TODO (Zustand): Chame a action de deletar todas as tarefas da sua store
             onPress={() => setTasks([])} 
           >
             <Text style={styles.actionButtonText}>Excluir todas</Text>
@@ -137,7 +154,6 @@ export default function App() {
           <Button title="Sobre o App" onPress={() => setAboutModalVisible(true)} />
         </View>
 
-        {/* TODO (Zustand): Remova as props tasks, onUpdate e onDelete após refatorar o TaskList */}
         <TaskList 
           tasks={tasks.filter(t => {
             if (filter === 'completed') return t.completed;
@@ -176,7 +192,6 @@ export default function App() {
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Data limite:</Text>
               {Platform.OS === 'web' ? (
-                // @ts-ignore
                 <input 
                   type="date"
                   value={dueDate ? dueDate.toISOString().split('T')[0] : ''}
@@ -285,6 +300,8 @@ const styles = StyleSheet.create({
   headerContainer: {
     alignItems: 'center',
     marginTop: 16,
+    width: '100%',
+    position: 'relative',
   },
   logo: {
     width: 60,
@@ -295,6 +312,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  logoutBtn: {
+    position: 'absolute',
+    right: 0,
+    top: 10,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ff4d4d',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  logoutBtnText: {
+    color: '#ff4d4d',
+    fontWeight: 'bold',
+    fontSize: 12,
   },
   counterContainer: {
     marginTop: 8,
