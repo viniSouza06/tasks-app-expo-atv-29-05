@@ -1,8 +1,23 @@
+import './global.css';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Platform, StatusBar as RNStatusBar, Image, Pressable, ActivityIndicator, Modal, Button } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, Platform, StatusBar as RNStatusBar, Image, ActivityIndicator, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Checkbox from 'expo-checkbox';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { config } from '@gluestack-ui/config';
+import { GluestackUIProvider } from '@gluestack-ui/themed/build/components/Provider';
+import { Button, ButtonText } from '@gluestack-ui/themed/build/components/Button';
+import { Input, InputField } from '@gluestack-ui/themed/build/components/Input';
+import {
+  AlertDialog,
+  AlertDialogBackdrop,
+  AlertDialogBody,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+} from '@gluestack-ui/themed/build/components/AlertDialog';
+import { Heading } from '@gluestack-ui/themed/build/components/Heading';
+import { Text as GluestackText } from '@gluestack-ui/themed/build/components/Text';
 import TaskList from './src/components/TaskList';
 import { addTask, deleteTask, getAllTasks, updateTask, TaskItem } from './src/utils/handle-api';
 import { globalStyles } from './src/styles/global';
@@ -25,6 +40,8 @@ function AppContent() {
   const [completed, setCompleted] = useState(false);
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [taskIdToDelete, setTaskIdToDelete] = useState<string | null>(null);
+  const [deleteMode, setDeleteMode] = useState<'task' | 'all' | null>(null);
   const [priority, setPriority] = useState<'Baixa' | 'Média' | 'Alta'>('Baixa');
 
   const { session: token, signOut: logout, loading: authLoading } = useAuth();
@@ -69,6 +86,30 @@ function AppContent() {
     }
   };
 
+  const openDeleteDialog = (id: string) => {
+    setTaskIdToDelete(id);
+    setDeleteMode('task');
+  };
+
+  const openDeleteAllDialog = () => {
+    setTaskIdToDelete(null);
+    setDeleteMode('all');
+  };
+
+  const closeDeleteDialog = () => {
+    setTaskIdToDelete(null);
+    setDeleteMode(null);
+  };
+
+  const confirmDeleteTask = () => {
+    if (deleteMode === 'all') {
+      setTasks([]);
+    } else if (taskIdToDelete) {
+      deleteTask(taskIdToDelete, setTasks);
+    }
+    closeDeleteDialog();
+  };
+
   const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) setDueDate(selectedDate);
@@ -76,7 +117,7 @@ function AppContent() {
 
   if (authLoading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+      <SafeAreaView className="flex-1 items-center justify-center bg-gray-100" style={styles.safeAreaInset}>
         <ActivityIndicator size="large" color="#000000" />
       </SafeAreaView>
     );
@@ -90,8 +131,8 @@ function AppContent() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+    <SafeAreaView className="flex-1 bg-gray-100" style={styles.safeAreaInset}>
+      <View className="flex-1 w-full max-w-[600px] self-center px-4">
         <View style={styles.headerContainer}>
           {logoError ? (
             <Text style={styles.header}>Gerenciador de Tarefas</Text>
@@ -134,31 +175,25 @@ function AppContent() {
         </View>
 
         <View style={styles.actionButtonsContainer}>
-          <Pressable 
-            style={({ pressed }) => [
-              styles.actionButton,
-              styles.actionButtonAdd,
-              pressed && styles.actionButtonAddPressed
-            ]}
+          <Button
+            style={[styles.actionButton, styles.actionButtonAdd]}
             onPress={() => setModalVisible(true)}
           >
-            <Text style={styles.actionButtonText}>Nova Tarefa</Text>
-          </Pressable>
+            <ButtonText style={styles.actionButtonText}>Nova Tarefa</ButtonText>
+          </Button>
 
-          <Pressable 
-            style={({ pressed }) => [
-              styles.actionButton,
-              styles.deleteButton,
-              pressed && styles.deleteButtonPressed
-            ]}
-            onPress={() => setTasks([])} 
+          <Button
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={openDeleteAllDialog} 
           >
-            <Text style={styles.actionButtonText}>Excluir todas</Text>
-          </Pressable>
+            <ButtonText style={styles.actionButtonText}>Excluir todas</ButtonText>
+          </Button>
         </View>
 
         <View style={styles.aboutButtonContainer}>
-          <Button title="Sobre o App" onPress={() => setAboutModalVisible(true)} />
+          <Button action="secondary" variant="outline" onPress={() => setAboutModalVisible(true)}>
+            <ButtonText>Sobre o App</ButtonText>
+          </Button>
         </View>
 
         <TaskList 
@@ -168,7 +203,7 @@ function AppContent() {
             return true;
           })} 
           onUpdate={updateMode} 
-          onDelete={(id) => deleteTask(id, setTasks)} 
+          onDelete={openDeleteDialog} 
         />
 
         {loading && (
@@ -188,13 +223,15 @@ function AppContent() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{isUpdating ? "Editar Tarefa" : "Nova Tarefa"}</Text>
             
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Nome da tarefa..."
-              value={text}
-              maxLength={50}
-              onChangeText={setText}
-            />
+            <Input style={styles.modalInput}>
+              <InputField
+                style={styles.modalInputField}
+                placeholder="Nome da tarefa..."
+                value={text}
+                maxLength={50}
+                onChangeText={setText}
+              />
+            </Input>
 
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Data limite:</Text>
@@ -263,16 +300,16 @@ function AppContent() {
             </View>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={resetForm}>
-                <Text style={styles.modalCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
+              <Button variant="link" style={styles.modalCancelBtn} onPress={resetForm}>
+                <ButtonText style={styles.modalCancelText}>Cancelar</ButtonText>
+              </Button>
+              <Button
                 style={[styles.modalSaveBtn, !text.trim() && styles.modalSaveBtnDisabled]} 
                 onPress={handleSave}
-                disabled={!text.trim()}
+                isDisabled={!text.trim()}
               >
-                <Text style={styles.modalSaveText}>Salvar</Text>
-              </TouchableOpacity>
+                <ButtonText style={styles.modalSaveText}>Salvar</ButtonText>
+              </Button>
             </View>
           </View>
         </View>
@@ -286,6 +323,30 @@ function AppContent() {
         <AboutScreen onClose={() => setAboutModalVisible(false)} />
       </Modal>
 
+      <AlertDialog isOpen={deleteMode !== null} onClose={closeDeleteDialog}>
+        <AlertDialogBackdrop />
+        <AlertDialogContent style={styles.alertDialogContent}>
+          <AlertDialogHeader>
+            <Heading size="md">{deleteMode === 'all' ? 'Excluir todas' : 'Excluir tarefa'}</Heading>
+          </AlertDialogHeader>
+          <AlertDialogBody>
+            <GluestackText>
+              {deleteMode === 'all'
+                ? 'Tem certeza que deseja excluir todas as tarefas?'
+                : 'Tem certeza que deseja excluir esta tarefa?'}
+            </GluestackText>
+          </AlertDialogBody>
+          <AlertDialogFooter style={styles.alertDialogFooter}>
+            <Button variant="outline" action="secondary" style={styles.alertDialogButton} onPress={closeDeleteDialog}>
+              <ButtonText>Cancelar</ButtonText>
+            </Button>
+            <Button action="negative" style={styles.alertDialogButton} onPress={confirmDeleteTask}>
+              <ButtonText>Excluir</ButtonText>
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <StatusBar style="auto" />
     </SafeAreaView>
   );
@@ -293,24 +354,17 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <GluestackUIProvider config={config}>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </GluestackUIProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: globalStyles.backgroundColor,
+  safeAreaInset: {
     paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
-  },
-  container: {
-    flex: 1,
-    maxWidth: 600,
-    width: '100%',
-    alignSelf: 'center',
-    paddingHorizontal: 16,
   },
   headerContainer: {
     alignItems: 'center',
@@ -415,21 +469,9 @@ const styles = StyleSheet.create({
     backgroundColor: globalStyles.primaryColor,
     shadowColor: globalStyles.primaryColor,
   },
-  actionButtonAddPressed: {
-    backgroundColor: '#333',
-    transform: [{ scale: 0.98 }],
-    elevation: 1,
-    shadowOpacity: 0.1,
-  },
   deleteButton: {
     backgroundColor: '#ff4d4d',
     shadowColor: '#ff0000',
-  },
-  deleteButtonPressed: {
-    backgroundColor: '#d9363e',
-    transform: [{ scale: 0.98 }],
-    elevation: 1,
-    shadowOpacity: 0.1,
   },
   loaderContainer: {
     position: 'absolute',
@@ -470,10 +512,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 4,
+    marginBottom: 16,
+  },
+  modalInputField: {
+    fontSize: 16,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    fontSize: 16,
-    marginBottom: 16,
   },
   fieldRow: {
     flexDirection: 'row',
@@ -543,5 +587,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  alertDialogContent: {
+    width: '90%',
+    maxWidth: 360,
+    borderRadius: 8,
+    padding: 20,
+  },
+  alertDialogFooter: {
+    gap: 12,
+    marginTop: 8,
+  },
+  alertDialogButton: {
+    minWidth: 96,
   },
 });
